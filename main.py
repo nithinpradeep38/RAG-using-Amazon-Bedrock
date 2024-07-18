@@ -1,12 +1,12 @@
 import boto3
 import streamlit as st
-from langchain.llms.bedrock import Bedrock
+from langchain_community.llms.bedrock import Bedrock
 from langchain.embeddings import BedrockEmbeddings
 from langchain.document_loaders import PyPDFDirectoryLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
 from langchain.prompts import PromptTemplate
-from langchain.chains import RetrievalQA
+from langchain.chains.retrieval_qa.base import RetrievalQA
 
 
 prompt_template = """
@@ -40,12 +40,12 @@ def get_documents():
 
 
 def get_vectorstore(docs):
-    vectorstore_faiss=FAISS.from_documents(embeddings=bedrock_embeddings, documents=docs)
+    vectorstore_faiss=FAISS.from_documents(embedding=bedrock_embeddings, documents=docs)
     vectorstore_faiss.save_local("faiss_local") #save locally in the current directory
 
 
 def get_llm():
-    llm= Bedrock(model_id= "mistral.mistral-7b-instruct-v0:2", client=bedrock) #using mistral-7b-instruct-v0 model for LLM through Bedrock API
+    llm = Bedrock(model_id = "mistral.mistral-7b-instruct-v0:2", client = bedrock) #connect mistral-7b-instruct-v0 model for LLM through Bedrock API
     return llm
 
 PROMPT = PromptTemplate(
@@ -57,16 +57,37 @@ def get_llm_response(llm, vectorstore_faiss, query):
     qa= RetrievalQA.from_chain_type(llm= llm, 
                                     chain_type= "stuff", #since QA, we use stuff chain
                                     retriever= vectorstore_faiss.as_retriever(search_type="similarity", search_kwargs={"k": 3}), #connect to vectorstore for retrieval
-    return_source_documents= True, #return the source documents for detailed answer
-    chain_type_kwargs={"prompt": PROMPT}) #set the prompt template
+                                    return_source_documents= True, #return the source documents for detailed answer
+                                    chain_type_kwargs={"prompt": PROMPT}) #set the prompt template
 
     response= qa({"query": query}) #pass the question to the LLM
-    return response['results'] #return the answer
+    return response['result'] #return the answer
 
 
-
+#to run streamlit app run "streamlit run main.py"
 def main():
-    pass
+    st.set_page_config(page_title="PDF QA")
+    st.header("End to End RAG using Bedrock, LangChain, and Streamlit")
+    
+    user_question = st.text_input("Ask a question from the llama2 paper")
 
+    with st.sidebar:
+        st.title("Update and create the vectorstore") #will create a sidebar
+
+        if st.button("Store vectorstore"):  #create a button for triggering the vectorstore creation
+            with st.spinner("Creating vectorstore..."):
+                docs=get_documents()
+                get_vectorstore(docs)
+                st.success("Vectorstore created successfully!")
+
+        if st.button("Send"):  #
+            with st.spinner("Loading FAISS vectorstore..."):
+                faiss_index= FAISS.load_local("faiss_local",bedrock_embeddings, allow_dangerous_deserialization=True) #load the vectorstore from local directory
+                llm= get_llm()
+                st.write(get_llm_response(llm,faiss_index, user_question)) #write the response to the user
+                
+
+if __name__== "__main__":
+    main()
 
 
