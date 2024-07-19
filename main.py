@@ -7,7 +7,14 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
 from langchain.prompts import PromptTemplate
 from langchain.chains.retrieval_qa.base import RetrievalQA
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
+
+aws_access_key_id = os.getenv("aws_access_key_id")
+aws_secret_access_key = os.getenv("aws_secret_access_key")
+region_name = os.getenv("region_name")
 
 prompt_template = """
 
@@ -25,7 +32,10 @@ Assistant:"""
 
 
 #Bedrock client setup
-bedrock= boto3.client(service_name='bedrock-runtime', region_name='us-east-1')
+bedrock= boto3.client(service_name='bedrock-runtime', 
+                      region_name=region_name,
+                      aws_access_key_id=aws_access_key_id,
+                      aws_secret_access_key=aws_secret_access_key)
 
 #Get embedding model from Bedrock
 bedrock_embeddings= BedrockEmbeddings(model_id="amazon.titan-embed-text-v1", client= bedrock) #titan-embed-text-v1 model for embedding
